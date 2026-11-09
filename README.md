@@ -1,66 +1,75 @@
-# Hermes Context Review Plugin: Human-Approved Context Compaction
+# Hermes Context Review Plugin
 
-**Human-approved context compaction for Hermes Agent.** Review what your AI carries forward before a long conversation is compressed.
+A [Hermes Agent](https://github.com/NousResearch/hermes-agent) plugin that lets you review and approve context compaction before it happens.
 
-This community plugin adds an evidence-grounded context review workflow to [Hermes Agent](https://github.com/NousResearch/hermes-agent): clarify important ambiguities, inspect a structured handoff, and approve that exact version before compaction. It includes active-context token reminders and an optional Hermes Desktop reminder above the message box.
+The idea is simple: before the agent compresses a long conversation, it should check what still matters, ask me if something is unclear, and show me what it's going to keep. Then I decide whether to go ahead.
 
-**Status: experimental · Plugin version: 0.1.1 · Tested with Hermes Agent 0.23.0.** This is an independent project, not an official Nous Research plugin.
+**Experimental. I'm going to use this in my own work and see whether it helps.**
 
-## Why review context before compaction?
+## Where the idea came from
 
-Long-running AI conversations accumulate decisions, repeated explanations, abandoned ideas, tool results, and unfinished work. A useful context handoff needs to distinguish what you actually approved from what the assistant merely suggested.
+I was inspired by Drew Breunig's [The State of Context Engineering](https://www.dbreunig.com/2026/10/24/the-state-of-context-engineering.html). He talks about watching context size rather than filling the whole window, and checking what's relevant before compacting. Around 200k–300k tokens is where he starts paying attention; he gives an example of resetting before a big new job.
 
-Instead of immediately replacing earlier context with an automatic summary, this plugin gives you a review step:
+That made me want to try this in my own workflow. I also remember seeing a token readout around 500k while using GPT-6.1 Sol, which got me thinking about how much of a long chat I still needed.
 
-1. **Start a review.** Ask Hermes to review the current conversation.
-2. **Resolve meaningful ambiguities.** The assistant asks one source-grounded question at a time, only when an answer changes what should survive.
-3. **Inspect the handoff.** Review the objective, active work, decisions, constraints, artifacts, open questions, and next actions.
-4. **Approve a specific version.** Send the exact approval phrase shown with that proposal.
-5. **Continue with compacted context.** Hermes applies the approved handoff through its native context engine, retaining the conversation after the review snapshot.
+My version adds a conversation before compaction. If we've changed direction, left something unresolved, or discussed an idea without agreeing to it, I want a chance to clear that up before it becomes part of the summary.
 
-A request to review is **not** permission to compact. A generic “yes” is not cleanup approval.
+Drew's post is the inspiration, not evidence that this plugin improves results.
 
-## Features
+## What I'm going to test
 
-- **Version-bound approval:** approval is tied to the reviewed source, clarifications, and proposed handoff. A changed proposal needs fresh approval; changed source history invalidates the old approval.
-- **Evidence-grounded clarification:** initial questions require matching conversation quotes. Follow-ups can reference a previously answered question.
-- **Active-context reminders:** reminder thresholds use the current input context, not cumulative session token spend.
-- **Profile and session isolation:** review state persists locally and is separated by active Hermes profile and session.
-- **Original-history retention:** compaction changes the active context through Hermes' native lifecycle, without deleting the original session evidence.
-- **Optional Desktop UI:** a compact, native-themed strip offers **Review now** and **Later**, follows the focused chat, and protects unsent drafts.
-- **No extra Python dependencies:** the backend uses the standard library plus APIs supplied by your Hermes installation.
+I'm going to use it for marketing work and general tasks, then compare the results with how I worked before.
 
-This is not a promise of lossless summarization. The model and the human still need to judge whether the proposed handoff preserves the right information.
+For marketing, that means research, positioning, content drafts, and revisions. For general tasks, it means planning, troubleshooting, and longer conversations where the task changes as we go.
 
-## Requirements and compatibility
+I'm looking for a few practical things:
 
-| Component | Requirement |
-| --- | --- |
-| Hermes Agent | Manifest declares `>=0.22.5`; integration tests run on `0.23.0`. Older-version admission tests do not establish full compatibility with every release. |
-| Context engine | Select `context-review`. Installing the plugin alone does not select the engine. |
-| Tool availability | Enable the `context_engine` toolset for each surface where you use the review tool. |
-| Codex transport | Use `codex_responses`, not `codex_app_server`. The plugin rejects app-server because it can compact outside this review boundary. |
-| Desktop reminder | Optional; requires the Desktop SDK APIs used in [`ui/plugin.js`](ui/plugin.js), including focused usage and exact-session composer submission. |
+- Does the agent keep the decisions I made, without treating every suggestion as something I approved?
+- Do I spend less time repeating context or correcting things we've already discussed?
+- Are the drafts, recommendations, and completed tasks better than before?
+- Is reviewing the handoff worth the extra time, or does it mostly add friction?
 
-Only one context engine can be selected at a time. If you already use a different custom engine, evaluate the trade-off before replacing it.
+I don't have results yet. A smaller token count isn't enough on its own; I want to see whether the work gets better.
 
-## Install the Hermes context review plugin
+## How it works
 
-### 1. Download without activating
+Ask Hermes:
+
+> Review this chat's context. Ask me one question at a time if anything needs clearing up, then show me what you want to keep before compacting.
+
+The agent reviews the conversation. If something important is ambiguous, it asks one question and waits for your answer before deciding what to ask next. If nothing needs clarifying, it can go straight to the proposed handoff.
+
+That handoff covers the goal, work in progress, decisions, constraints, exact file paths or other artifacts, open questions, next steps, and what can leave active context.
+
+You read it, request changes if needed, then send the exact phrase it gives you:
+
+```text
+approve context cleanup <version>
+```
+
+Use the actual version from your proposal. Saying "yes" or asking for a review doesn't approve compaction. If the proposal changes, it needs new approval. If the reviewed history changes, the old approval is invalidated.
+
+Hermes applies the approved handoff through its native context engine and keeps the messages that came after the review snapshot. The plugin only marks it as applied after Hermes confirms the compaction was committed.
+
+Original session history stays in Hermes. This changes what the agent carries in active context, not what you keep as conversation history. It doesn't save permanent memories, skills, or vault notes as part of the review.
+
+## Install the plugin
+
+Version `0.1.1` has been tested with Hermes Agent `0.23.0`. The manifest allows `>=0.22.5`, but I haven't verified every release, provider, or operating system. This is a community plugin, not an official Nous Research project.
+
+It uses Hermes' APIs and the Python standard library, with no extra Python dependencies.
+
+### 1. Download it
 
 ```bash
 hermes plugins install izzie-iz/hermes-context-review-plugin --no-enable
 ```
 
-The manifest names the installed backend `context-review`, so its default location is `~/.hermes/plugins/context-review/`. With a custom Hermes home, it is `$HERMES_HOME/plugins/context-review/`.
+This installs the backend as `context-review`, normally under `~/.hermes/plugins/context-review/`, or `$HERMES_HOME/plugins/context-review/` if you use a custom home.
 
-For a named profile, use `hermes -p <profile> plugins install ... --no-enable` and apply the remaining settings to that same profile.
+### 2. Set up reviewed compaction
 
-### 2. Configure reviewed compaction
-
-**These settings intentionally replace automatic compaction with approval-gated review.** Inspect your existing configuration first. If you defer review until the context window is full, the provider may refuse another request rather than the plugin silently compacting it.
-
-Use the supported CLI to set individual keys:
+Check your existing settings first. These commands switch off other automatic compaction and pruning paths so they don't bypass the review. They also replace your selected context engine; don't apply them blindly if you already use another one.
 
 ```bash
 hermes config set compression.enabled true
@@ -74,124 +83,84 @@ hermes config set compression.codex_app_server_auto off
 hermes config set context.engine context-review
 ```
 
-**Codex users only:** also select the supported transport:
+If you use Codex, also run:
 
 ```bash
 hermes config set model.api_mode codex_responses
 ```
 
-Do not apply that transport setting to unrelated providers.
+That last command is **only for Codex**. The plugin rejects `codex_app_server` because that transport can compact outside the review process.
 
-Enable both the general plugin and its toolset:
+Enable the plugin and review tool:
 
 ```bash
 hermes plugins enable context-review --no-allow-tool-override
 hermes tools enable context_engine --platform cli
 ```
 
-Repeat the toolset command with the platform name used by your intended surface. For a named profile, prefix each command with `hermes -p <profile>`; do not assume the default profile's settings are inherited.
+Selecting the engine and enabling the plugin are separate steps. You need both: the engine handles compaction, and the general plugin registers the review hook and tool.
 
-Both loading paths matter: selecting the engine enables context management, while enabling the general plugin registers its pre-call hook and registry-backed tool.
+For a named profile, use `hermes -p <profile>` at the start of **every** command, including installation. Enable the toolset for each platform you use, not just `cli`. Settings aren't automatically shared between profiles.
 
-### 3. Validate and check the conversation
+### 3. Check that it's available in your chat
 
 ```bash
 hermes plugins doctor context-review --ci
-hermes plugins validate context-review --json
+hermes plugins validate "${HERMES_HOME:-$HOME/.hermes}/plugins/context-review" --json
 ```
 
-Resume the same conversation through Hermes' supported session-resume flow if an already-running agent predates activation. Do not reset or delete the conversation. Plugin reload alone may not replace a cached agent or refresh an existing session's tool policy.
+The validation command takes a directory path, not a plugin name. For a named profile, point it at that profile's installed `plugins/context-review/` directory.
 
-Ask Hermes to check `context_review` with `action: status`. Confirm the selected engine is `context-review` and `engine_initialized` is true before relying on it.
+Ask Hermes to call `context_review` with `action: status`. Check that the engine is `context-review` and `engine_initialized` is true.
 
-## How to use context review
+An already-running agent may still have its old engine or tool policy. If so, resume the same conversation through Hermes' supported session-resume flow. Don't reset the chat or delete its history. Reloading the plugin alone may not refresh the agent.
 
-Ask in your conversation:
+**Don't wait until the context window is full.** If you haven't approved a handoff, the plugin won't silently compact to make room, and your provider may refuse the next request.
 
-> Review this chat's context. Ask one question at a time only if needed, then show me the handoff before compacting.
+## Context reminders
 
-Hermes reviews the actual conversation, asks for clarification where needed, and proposes these sections:
+The backend checks the latest provider-reported input usage, not all the tokens you've spent across the session.
 
-| Handoff section | What it preserves |
-| --- | --- |
-| Objective | What you are trying to accomplish |
-| Active work | Work still in progress |
-| Decisions | Adopted decisions, with approval status distinguished from suggestions |
-| Constraints | Scope, permissions, and rules that still apply |
-| Artifacts | Exact paths, identifiers, and relevant outputs |
-| Open questions | Unresolved information, not invented answers |
-| Next actions | What should happen next |
-| Remove from active | What can leave active context, not what to delete from history |
-
-After inspecting the complete proposal, send the phrase Hermes provides:
-
-```text
-approve context cleanup <version>
-```
-
-Replace `<version>` with the actual proposal version. The placeholder itself is not approval. Approval is matched against that proposal's phrase; tool calls, manual `/compress`, and `force=True` do not grant it.
-
-The engine reports the handoff as **applied** only after Hermes confirms the native compression boundary. A proposal or approval alone is not proof of completed compaction.
-
-### Pause, snooze, or inspect
-
-The `context_review` tool supports:
-
-| Action | Purpose |
-| --- | --- |
-| `status` | Inspect review phase and state |
-| `start` | Begin reviewing the current conversation |
-| `inspect` | Read indexed source excerpts from the reviewed snapshot |
-| `ask` | Stage one grounded clarification question |
-| `propose` | Prepare or revise the structured handoff |
-| `pause` / `resume` | Suspend and continue a review |
-| `later` | Snooze backend reminders for another 25,000 active-context tokens |
-| `dismiss` | Suppress reminders for the session; the review can be resumed explicitly |
-
-You can request these actions conversationally. There is no tool action that approves cleanup on your behalf.
-
-## Active-context token reminders
-
-The backend offers a reminder on a subsequent user turn when the latest provider-reported prompt usage reaches a threshold:
-
-| Reminder | Threshold |
+| Reminder | When it appears |
 | --- | --- |
 | First | Lower of 250,000 tokens or 60% of the model's context window |
 | Second | Lower of 300,000 tokens or 75% of the model's context window |
 
-These are turn-boundary reminders, not idle-time notifications or exact real-time interrupts. If the provider omits prompt usage, the backend does not currently estimate it. The Desktop component separately consumes the app's focused-usage data and can label estimated usage when the host supplies it.
+These reminders arrive on a subsequent user turn, not as an exact real-time interrupt. If the provider doesn't report prompt usage, the backend doesn't currently estimate it.
+
+You can ask to review now, snooze reminders, pause a review, or skip reminders for that session. Review state is kept separately for each profile and session and survives restarts.
 
 ## Optional Hermes Desktop reminder
 
-The Desktop component adds a small strip immediately above the message composer:
+There's also a small strip above the message box:
 
 ```text
 Context review suggested          [Review now]  [Later]
 ```
 
-**Review now** sends a review request to the intended chat, not an approval phrase. It refuses to overwrite an unsent draft and waits while the chat is busy. **Later** snoozes the UI reminder for another 25,000 active-context tokens.
+**Review now** starts the review. It doesn't approve compaction, overwrite an unsent draft, or submit while the chat is busy. **Later** snoozes the UI reminder until active context grows by another 25,000 tokens.
 
-See [Desktop reminder installation and behavior](ui/README.md). The backend works without this UI. UI-local snoozing does not change backend reminder or approval state.
+It follows the focused chat and uses Hermes' theme. Install it separately using the [Desktop setup instructions](ui/README.md). The backend works without it, and snoozing the UI doesn't change the backend reminder state.
 
-## Privacy and session history
+## What's stored locally
 
-Backend review state is stored in:
+Review state lives here:
 
 ```text
 $HERMES_HOME/plugin-data/context-review/state.sqlite3
 ```
 
-It contains message fingerprints, clarification questions and answers, proposals, and workflow state. It is not a second full transcript archive, but questions, quotes, and proposals can still contain sensitive conversation details. Keep it private.
+It includes message fingerprints, questions and answers, proposals, and review state. It isn't a second full transcript archive, but quotes and proposals can contain private information. Don't upload that database or unredacted diagnostics to an issue.
 
-The plugin uses the active profile's home and the dispatcher's trusted session identity. The registry adapter reads only that session's active transcript through Hermes' read-only session API. It does not accept model-selected profile, session, or database overrides.
+The current chat's model does the review. There isn't a separate background summarizer, and triggering a token reminder doesn't make an extra model call. The review conversation still uses your normal model and provider.
 
-The current conversation's model performs the review. There is no separate background summarizer or additional model call just to trigger a token reminder. Review messages still use your normal model and provider.
+The optional Desktop UI also stores local reminder preferences and diagnostic receipts, including session identifiers and UI state. See its [README](ui/README.md#local-diagnostics) for details.
 
-The review workflow does not write permanent memories, skills, or vault notes as a side effect. Original transcript retention depends on Hermes' native session storage; this plugin does not provide a separate backup service.
+## Testing the code
 
-## Tests and validation
+The initial checks passed **15 backend tests and 8 Desktop UI tests** on Hermes Agent `0.23.0`, plus native plugin doctor and validation.
 
-Run from this repository using the Hermes runtime and Node.js for the optional UI tests:
+From the repository root:
 
 ```bash
 hermes --run-module unittest discover -s ./tests -p 'test_review.py' -v
@@ -201,42 +170,28 @@ node --check ui/plugin.js
 node --experimental-vm-modules --test tests/test_desktop_ui.mjs
 ```
 
-The backend fixtures require `TMPDIR` to point to an existing writable temporary directory. If your environment does not set it, set it before running the suite.
+The backend tests need `TMPDIR` set to an existing writable temporary directory. The UI tests need Node.js and use controlled SDK stubs rather than a full Desktop app.
 
-The initial publication was checked with **15 backend tests and 8 Desktop UI tests** on Hermes Agent 0.23.0. Coverage includes version-bound human approval, source drift, proposal revision, grounded questions, profile/session isolation, restart persistence, native loader and tool dispatch, original-history retention, the real agent compression lifecycle, focused-chat routing, draft protection, and UI reminder state.
+Tests cover approval, changed proposals and source history, clarification, profile/session separation, restart persistence, native tool dispatch and compaction, history retention, and the Desktop reminder's chat routing and draft protection. They use isolated synthetic sessions, not your production chats or paid model calls. Hermes integration fixtures can emit auxiliary-model, deprecation, and process-cleanup warnings.
 
-Tests use isolated synthetic sessions. They do not compact your production chats or make paid model requests. Native Hermes integration fixtures can emit auxiliary-model, deprecation, and process-cleanup warnings; passing fixtures are not evidence of live provider compatibility.
+Passing those checks means the tested mechanics work. It doesn't answer my question about better marketing or general-task results. That's the next experiment.
 
-## Limitations
+## A few limits to know
 
-- Experimental, with no full compatibility matrix across Hermes releases, operating systems, or model providers.
-- A real 250,000-token conversation and unattended production cleanup have not been exercised by this suite.
-- Source matching and approval gates are deterministic; handoff completeness and the usefulness of clarification still depend on model judgment and human review.
-- No automatic fallback compaction if you decline. Review while there is enough context headroom to complete it.
-- Codex app-server transport is unsupported. Competing native pruning or compaction paths must remain disabled as documented above.
-- The optional Desktop UI is installed separately and is not automatically activated by installing the backend.
+- This isn't lossless memory. You still need to check whether the handoff keeps the right things.
+- The suite hasn't exercised a real 250k-token conversation or unattended production cleanup.
+- Manual `/compress`, `force=True`, and tool calls don't grant cleanup approval.
+- Other compaction paths need to stay disabled as documented above. Codex app-server isn't supported.
+- Original history is retained through Hermes' session storage. This plugin isn't a separate backup system.
 
-## Project structure
+## Issues and contributions
 
-```text
-hermes-context-review-plugin/
-├── __init__.py                 # Context engine, review tool, and safety hook
-├── plugin.yaml                 # Hermes plugin manifest
-├── README.md
-├── ui/
-│   ├── plugin.js               # Optional Desktop composer reminder
-│   └── README.md
-└── tests/
-    ├── test_review.py          # Backend and native host contract tests
-    └── test_desktop_ui.mjs     # Desktop behavior tests with SDK stubs
-```
+If you try it, I'd like to hear whether it helps with your actual work, including where it gets in the way.
 
-## Reporting issues
+[Open an issue](https://github.com/izzie-iz/hermes-context-review-plugin/issues) with your Hermes version, provider/transport, the surface you're using, and steps to reproduce the problem. Please leave private conversation content and session identifiers out of public logs.
 
-[Open an issue](https://github.com/izzie-iz/hermes-context-review-plugin/issues) with your Hermes version, model/provider transport, affected surface, relevant plugin settings, and reproduction steps. Redact session identifiers and private conversation content before sharing logs or state.
-
-For the host extension contracts, see the official [Context Engine Plugins](https://hermes-agent.nousresearch.com/docs/developer-guide/context-engine-plugin) and [Hermes Plugins](https://hermes-agent.nousresearch.com/docs/user-guide/features/plugins) documentation.
+For the host APIs, see the official [Context Engine Plugins](https://hermes-agent.nousresearch.com/docs/developer-guide/context-engine-plugin) and [Hermes Plugins](https://hermes-agent.nousresearch.com/docs/user-guide/features/plugins) docs.
 
 ## License
 
-A license has not yet been selected for this repository.
+A license hasn't been selected yet.

@@ -4,7 +4,7 @@ Optional native-themed UI for the [Hermes Context Review Plugin](../README.md). 
 
 ## Install
 
-Install and configure the backend first using the [main setup instructions](../README.md#install-the-hermes-context-review-plugin). The reminder itself does not select or activate a context engine.
+Install and configure the backend first using the [main setup instructions](../README.md#install-the-plugin). The reminder itself does not select or activate a context engine.
 
 For a default-home backend installation and a local Desktop app using the same home:
 
