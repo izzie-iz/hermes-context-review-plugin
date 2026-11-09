@@ -2,7 +2,7 @@
 
 A [Hermes Agent](https://github.com/NousResearch/hermes-agent) plugin that lets you review and approve context compaction before it happens.
 
-The idea is simple: before the agent compresses a long conversation, it should check what still matters, ask me if something is unclear, and show me what it's going to keep. Then I decide whether to go ahead.
+The idea isn't exactly groundbreaking: before the agent compresses a long conversation, it should check what still matters, ask me if something is unclear, and show me what it's going to keep. Then I decide whether to go ahead.
 
 **Experimental. I'm going to use this in my own work and see whether it helps.**
 
