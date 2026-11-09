@@ -1,0 +1,14 @@
+name: context-review
+label: Conversational Context Review
+kind: standalone
+version: 0.1.1
+author: izzie-iz
+requires_hermes: ">=0.22.5"
+description: >
+  Profile-isolated, evidence-grounded context reviews with active-token reminders,
+  dynamic one-question-at-a-time clarification and version-bound human approval
+  before native context compaction. Never deletes original session history.
+provides_tools:
+  - context_review
+provides_hooks:
+  - pre_llm_call

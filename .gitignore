@@ -1,0 +1,21 @@
+# Python bytecode and local environments
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+
+# Runtime state and local diagnostics, never distribution assets
+plugin-data/
+activation-report.json
+*.sqlite3
+*.sqlite3-*
+*.db
+*.db-*
+.env
+.env.*
+!.env.example
+
+# Desktop and editor files
+.DS_Store
+node_modules/
